@@ -1,0 +1,80 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  fullName     String
+  isAdmin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  passwordHash String
+}
+
+model Fuel {
+  id                String        @id @default(uuid())
+  name              String        @unique
+  type              String        // benzyna, diesel, LPG, inne
+  pricePerLiter     Float
+  availableQuantity Float
+  stations          StationFuel[]
+}
+
+model Station {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  address      String
+  city         String
+  workingHours String
+  status       String        @default("czynna") // czynna, nieczynna
+  lat          Float?        // GPS latitude (optional)
+  lng          Float?        // GPS longitude (optional)
+  createdAt    DateTime      @default(now())
+  fuels        StationFuel[]
+  transactions Transaction[]
+}
+
+model StationFuel {
+  id                Int     @id @default(autoincrement())
+  stationId         String
+  fuelId            String
+  pricePerLiter     Float
+  availableQuantity Float
+  station           Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  fuel              Fuel    @relation(fields: [fuelId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, fuelId])
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  stationId     String
+  fuelId        String
+  fuelName      String
+  liters        Float
+  pricePerLiter Float
+  totalPrice    Float
+  buyerName     String
+  timestamp     DateTime @default(now())
+  station       Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  // New fields for the workers and payment status
+  worker        String?  // Pracownik 1, Pracownik 2, Pracownik 3
+  paymentMethod String?  // Gotówka, Karta, Przelew, BLIK
+  status        String   @default("opłacona") // opłacona, nieudana
+  calcType      String   @default("liters")   // liters, price
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  user      String
+  action    String
+  details   String
+}

@@ -1,0 +1,6 @@
+{
+  "name": "FUELREST SYSTEM",
+  "description": "Rozproszony system zarządzania stacjami paliw oparty o REST API z autoryzacją JWT oraz nowoczesny panel administracyjny.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["SERVER_SIDE_INTEGRATION", "REST_API_CONTROLLER"]
+}
