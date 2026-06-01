@@ -4,7 +4,7 @@ import { Fuel as FuelIcon, MapPin, Gauge, PackageOpen } from 'lucide-react';
 interface StatsProps {
   stations: Station[];
   fuels: Fuel[];
-  currentUser: { username: string; role: string; fullName: string } | null;
+  currentUser: { username: string; isAdmin: boolean; fullName: string } | null;
 }
 
 export default function OverviewStats({ stations, fuels, currentUser }: StatsProps) {
@@ -20,14 +20,8 @@ export default function OverviewStats({ stations, fuels, currentUser }: StatsPro
     });
   });
 
-  const rawRoleName = (r: string) => {
-    switch(r) {
-      case 'admin': return 'Administrator';
-      case 'manager': return 'Kierownik (Manager)';
-      case 'operator': return 'Operator Stacji';
-      default: return 'Przeglądający';
-    }
-  };
+  const accountTypeLabel = (isAdmin: boolean) =>
+    isAdmin ? 'Administrator' : 'Użytkownik';
 
   return (
     <div id="overview-widgets" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -87,7 +81,7 @@ export default function OverviewStats({ stations, fuels, currentUser }: StatsPro
               {currentUser ? currentUser.fullName : 'Gość'}
             </span>
             <span className="text-[10px] text-emerald-500 font-mono tracking-wider uppercase font-semibold">
-               {currentUser ? rawRoleName(currentUser.role) : 'Niezalogowany'}
+               {currentUser ? accountTypeLabel(currentUser.isAdmin) : 'Niezalogowany'}
             </span>
           </div>
         </div>

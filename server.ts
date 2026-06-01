@@ -93,7 +93,7 @@ async function startServer() {
  * /auth/login:
  *   post:
  *     summary: Logowanie użytkownika (Auth)
- *     description: Loguje operatora, managera lub admina i zwraca token JWT.
+ *     description: Loguje użytkownika i zwraca token JWT z polem isAdmin w payloadzie.
  *     requestBody:
  *       required: true
  *       content:

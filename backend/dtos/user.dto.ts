@@ -3,12 +3,12 @@ export interface CreateUserDto {
   password?: string;
   email: string;
   fullName: string;
-  role?: 'admin' | 'manager' | 'operator';
+  isAdmin?: boolean;
 }
 
 export interface UpdateUserDto {
   email?: string;
   fullName?: string;
-  role?: 'admin' | 'manager' | 'operator';
+  isAdmin?: boolean;
   password?: string;
 }

@@ -107,7 +107,7 @@ export default function App() {
     password: '',
     email: '',
     fullName: '',
-    role: 'operator' as 'admin' | 'manager' | 'operator'
+    isAdmin: false
   });
 
   // Global notice states
@@ -237,7 +237,7 @@ export default function App() {
       setCurrentUser(lResponse.user);
       localStorage.setItem('fuel_jwt_token', lResponse.token);
       localStorage.setItem('fuel_current_user', JSON.stringify(lResponse.user));
-      setSuccessNotice(`Zalogowano jako ${lResponse.user.fullName} (${lResponse.user.role})`);
+      setSuccessNotice(`Zalogowano jako ${lResponse.user.fullName} (${lResponse.user.isAdmin ? 'Administrator' : 'Użytkownik'})`);
       setShowLoginModal(false);
       fetchData(); // Reload logs
     } catch (err: any) {
@@ -658,7 +658,7 @@ export default function App() {
         password: '',
         email: '',
         fullName: '',
-        role: 'operator'
+        isAdmin: false
       });
       fetchData();
     } catch (err: any) {
@@ -735,7 +735,7 @@ export default function App() {
               <div className="flex items-center gap-3 bg-zinc-900/60 p-2 rounded-sm border border-subtle">
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm">
                   <span className="status-dot-glow status-dot bg-emerald-500 w-2 h-2 rounded-full inline-block"></span>
-                  <span className="text-[9px] uppercase font-bold text-emerald-500 tracking-tighter">Authorized ({currentUser.role})</span>
+                  <span className="text-[9px] uppercase font-bold text-emerald-500 tracking-tighter">Authorized ({currentUser.isAdmin ? 'Admin' : 'User'})</span>
                 </div>
                 <div className="text-right hidden sm:block">
                   <span className="text-[11px] font-medium text-white block leading-none">{currentUser.fullName}</span>
@@ -1345,11 +1345,11 @@ export default function App() {
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] text-zinc-500 font-mono">ID: {u.id}</span>
                       <span className={`text-[9px] uppercase font-mono font-bold tracking-widest px-2 py-0.5 rounded-sm border ${
-                        u.role === 'admin' ? 'bg-[#ef4444]/10 text-rose-400 border-[#ef4444]/20' :
-                        u.role === 'manager' ? 'bg-[#6366f1]/10 text-indigo-400 border-[#6366f1]/20' :
-                        'bg-[#f59e0b]/10 text-amber-400 border-[#f59e0b]/20'
+                        u.isAdmin
+                          ? 'bg-[#ef4444]/10 text-rose-400 border-[#ef4444]/20'
+                          : 'bg-[#f59e0b]/10 text-amber-400 border-[#f59e0b]/20'
                       }`}>
-                        {u.role}
+                        {u.isAdmin ? 'admin' : 'user'}
                       </span>
                     </div>
 
@@ -2384,18 +2384,17 @@ export default function App() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-bold mb-1.5 font-sans">Rola zabezpieczeń wejściowych</label>
-                <select
-                  id="form-user-role"
-                  value={userForm.role}
-                  onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value as any }))}
-                  className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-3 focus:border-white focus:outline-none font-sans"
-                >
-                  <option value="operator">Operator (podgląd i zmiana asortymentu stacji)</option>
-                  <option value="manager">Kierownik (paliwa, stacje i operatorzy)</option>
-                  <option value="admin">Administrator (pełne uprawnienia systemu)</option>
-                </select>
+              <div className="flex items-center gap-3 pt-1">
+                <input
+                  id="form-user-is-admin"
+                  type="checkbox"
+                  checked={userForm.isAdmin}
+                  onChange={(e) => setUserForm(prev => ({ ...prev, isAdmin: e.target.checked }))}
+                  className="w-4 h-4 rounded border-subtle bg-zinc-950 text-white focus:ring-white"
+                />
+                <label htmlFor="form-user-is-admin" className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold font-sans cursor-pointer">
+                  Konto administratora (pełne uprawnienia systemu)
+                </label>
               </div>
 
               <div className="pt-4 border-t border-subtle flex justify-end gap-2">
