@@ -26,10 +26,11 @@ import { Station, Fuel, User as SystemUser, LoginResponse } from './types';
 import ApiDocumentation from './components/ApiDocumentation';
 import OverviewStats from './components/OverviewStats';
 import { PaymentModal } from './components/PaymentCheckoutModal';
+import StationMapView from './components/StationMapView';
 
 export default function App() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'stations' | 'fuels' | 'users' | 'apiDocs' | 'auditLogs' | 'transactions'>('stations');
+  const [activeTab, setActiveTab] = useState<'stations' | 'fuels' | 'users' | 'apiDocs' | 'auditLogs' | 'transactions' | 'map'>('stations');
 
   // Application Data States
   const [stations, setStations] = useState<Station[]>([]);
@@ -92,6 +93,8 @@ export default function App() {
     city: '',
     workingHours: '24/7',
     status: 'czynna' as 'czynna' | 'nieczynna',
+    lat: '' as string,
+    lng: '' as string,
     fuels: [] as { fuelId: string; pricePerLiter: number; availableQuantity: number }[]
   });
 
@@ -118,6 +121,19 @@ export default function App() {
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const authHeaders = (json = false): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (json) headers['Content-Type'] = 'application/json';
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
+  const parseOptionalGps = (value: string): number | null => {
+    if (value.trim() === '') return null;
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   // Load backend data
   const fetchData = async () => {
     setLoading(true);
@@ -129,9 +145,10 @@ export default function App() {
       if (statusFilter && statusFilter !== 'all') stUrl += `status=${encodeURIComponent(statusFilter)}&`;
       if (fuelFilter && fuelFilter !== 'all') stUrl += `fuelId=${encodeURIComponent(fuelFilter)}&`;
       if (sortByFilter) stUrl += `sortBy=${encodeURIComponent(sortByFilter)}&`;
-      stUrl += `page=${pageFilter}&limit=${limitFilter}`;
+      const stationLimit = activeTab === 'map' ? 1000 : limitFilter;
+      stUrl += `page=${activeTab === 'map' ? 1 : pageFilter}&limit=${stationLimit}`;
 
-      const stResponse = await fetch(stUrl);
+      const stResponse = await fetch(stUrl, { headers: authHeaders() });
       if (stResponse.ok) {
         const stData = await stResponse.json();
         setStations(stData);
@@ -166,28 +183,30 @@ export default function App() {
       }
 
       // Fuels catalogue
-      const flResponse = await fetch('/fuels');
+      const flResponse = await fetch('/fuels', { headers: authHeaders() });
       if (flResponse.ok) {
         const flData = await flResponse.json();
         setFuels(flData);
       }
 
       // Users register
-      const usResponse = await fetch('/users');
-      if (usResponse.ok) {
-        const usData = await usResponse.json();
-        setUsers(usData);
-      }
+      if (token) {
+        const usResponse = await fetch('/users', { headers: authHeaders() });
+        if (usResponse.ok) {
+          setUsers(await usResponse.json());
+        }
 
-      // Audit logs
-      const logResponse = await fetch('/api/logs');
-      if (logResponse.ok) {
-        const logData = await logResponse.json();
-        setAuditLogs(logData);
+        const logResponse = await fetch('/api/logs', { headers: authHeaders() });
+        if (logResponse.ok) {
+          setAuditLogs(await logResponse.json());
+        }
+      } else {
+        setUsers([]);
+        setAuditLogs([]);
       }
 
       // Fuel transactions
-      const txResponse = await fetch('/transactions');
+      const txResponse = await fetch('/transactions', { headers: authHeaders() });
       if (txResponse.ok) {
         const txData = await txResponse.json();
         setTransactions(txData);
@@ -202,7 +221,7 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
-  }, [cityFilter, statusFilter, fuelFilter, sortByFilter, pageFilter, limitFilter]);
+  }, [cityFilter, statusFilter, fuelFilter, sortByFilter, pageFilter, limitFilter, token, activeTab]);
 
   // Synchronize fuel selection when Sales Panel station changes
   useEffect(() => {
@@ -312,6 +331,8 @@ export default function App() {
       city: '',
       workingHours: '24/7',
       status: 'czynna',
+      lat: '',
+      lng: '',
       fuels: []
     });
     setShowStationModal(true);
@@ -325,6 +346,8 @@ export default function App() {
       city: st.city,
       workingHours: st.workingHours,
       status: st.status || 'czynna',
+      lat: st.lat != null ? String(st.lat) : '',
+      lng: st.lng != null ? String(st.lng) : '',
       fuels: [...st.fuels]
     });
     setShowStationModal(true);
@@ -340,12 +363,24 @@ export default function App() {
       return;
     }
 
+    if (stationForm.lat.trim() !== '' && parseOptionalGps(stationForm.lat) === null) {
+      setErrorNotice('Błąd: Szerokość GPS (lat) musi być poprawną liczbą.');
+      return;
+    }
+
+    if (stationForm.lng.trim() !== '' && parseOptionalGps(stationForm.lng) === null) {
+      setErrorNotice('Błąd: Długość GPS (lng) musi być poprawną liczbą.');
+      return;
+    }
+
     const payload = {
       name: stationForm.name,
       address: stationForm.address,
       city: stationForm.city,
       workingHours: stationForm.workingHours,
       status: stationForm.status,
+      lat: parseOptionalGps(stationForm.lat),
+      lng: parseOptionalGps(stationForm.lng),
       fuels: stationForm.fuels
     };
 
@@ -353,17 +388,10 @@ export default function App() {
     const url = isEditing ? `/stations/${editingStation.id}` : '/stations';
     const method = isEditing ? 'PUT' : 'POST';
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     try {
       const response = await fetch(url, {
         method,
-        headers,
+        headers: authHeaders(true),
         body: JSON.stringify(payload)
       });
 
@@ -422,6 +450,11 @@ export default function App() {
       return;
     }
 
+    if (!token) {
+      setTxStatusMessage('Błąd: zaloguj się, aby zrealizować tankowanie.');
+      return;
+    }
+
     try {
       const payload = {
         fuelId: txFuelId,
@@ -431,9 +464,7 @@ export default function App() {
 
       const response = await fetch(`/stations/${stationId}/transactions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: authHeaders(true),
         body: JSON.stringify(payload)
       });
 
@@ -623,12 +654,15 @@ export default function App() {
       return;
     }
 
+    if (!token || !currentUser?.isAdmin) {
+      setErrorNotice('Tylko administrator może rejestrować nowych użytkowników.');
+      return;
+    }
+
     try {
       const response = await fetch('/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: authHeaders(true),
         body: JSON.stringify(userForm)
       });
 
@@ -880,6 +914,19 @@ export default function App() {
             <Layers className="w-3.5 h-3.5" />
             Rejestr Sprzedaży
           </button>
+
+          <button
+            id="tab-map"
+            onClick={() => setActiveTab('map')}
+            className={`px-5 py-3 text-[10px] font-bold uppercase tracking-widest border-b-2 transition-all duration-150 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'map'
+                ? 'border-white text-white bg-zinc-900/40'
+                : 'border-transparent text-zinc-500 hover:text-white hover:bg-zinc-900/20'
+            }`}
+          >
+            <MapIcon className="w-3.5 h-3.5" />
+            Mapa Stacji
+          </button>
           
           <button
             onClick={fetchData}
@@ -959,6 +1006,18 @@ export default function App() {
                     <option value="name">Sortowanie: Nazwa A-Z</option>
                     <option value="city">Sortowanie: Miasto A-Z</option>
                     <option value="createdAt">Sortowanie: Data dodania</option>
+                  </select>
+
+                  <select
+                    id="page-size-select"
+                    value={limitFilter}
+                    onChange={(e) => { setLimitFilter(parseInt(e.target.value, 10)); setPageFilter(1); }}
+                    className="bg-zinc-950 text-xs text-zinc-400 border border-subtle rounded-sm px-3 py-2.5 focus:border-white focus:outline-none"
+                  >
+                    <option value={25}>25 / strona</option>
+                    <option value={100}>100 / strona</option>
+                    <option value={500}>500 / strona</option>
+                    <option value={1000}>1000 / strona</option>
                   </select>
                 </div>
               </div>
@@ -1955,6 +2014,32 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'map' && (
+          <div className="space-y-6">
+            <div className="glass-card p-6 rounded-md flex justify-between items-center flex-wrap gap-4">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-white">Mapa stacji paliw</h3>
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Kliknij pin na mapie lub stację z listy po lewej, aby zobaczyć szczegóły.
+                </p>
+              </div>
+              <button
+                onClick={fetchData}
+                className="bg-zinc-900 hover:bg-white hover:text-black border border-subtle text-[10px] uppercase font-bold tracking-wider text-zinc-300 px-3.5 py-2 rounded-sm transition-all duration-150 cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3 h-3" /> Odśwież
+              </button>
+            </div>
+            <StationMapView
+              stations={stations}
+              fuels={fuels}
+              onEditStation={(station) => {
+                handleOpenEditStation(station);
+              }}
+            />
+          </div>
+        )}
+
       </main>
 
       {/* =============================================================
@@ -2042,7 +2127,7 @@ export default function App() {
                     value={stationForm.name}
                     onChange={(e) => setStationForm(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="np. Orlen Warszawa"
-                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-755 font-sans"
+                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-600 font-sans"
                   />
                 </div>
 
@@ -2055,7 +2140,7 @@ export default function App() {
                     value={stationForm.address}
                     onChange={(e) => setStationForm(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="np. ul. Mozaikowa 142"
-                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-755 font-sans"
+                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-600 font-sans"
                   />
                 </div>
 
@@ -2068,7 +2153,7 @@ export default function App() {
                     value={stationForm.city}
                     onChange={(e) => setStationForm(prev => ({ ...prev, city: e.target.value }))}
                     placeholder="np. Warszawa"
-                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-755 font-sans"
+                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-600 font-sans"
                   />
                 </div>
 
@@ -2081,7 +2166,7 @@ export default function App() {
                     value={stationForm.workingHours}
                     onChange={(e) => setStationForm(prev => ({ ...prev, workingHours: e.target.value }))}
                     placeholder="np. 24/7 lub 06:00 - 22:00"
-                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-755 font-sans"
+                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-600 font-sans"
                   />
                 </div>
 
@@ -2096,6 +2181,32 @@ export default function App() {
                     <option value="czynna">czynna</option>
                     <option value="nieczynna">nieczynna</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-bold mb-1.5">Szerokość GPS (lat)</label>
+                  <input
+                    id="form-station-lat"
+                    type="number"
+                    step="any"
+                    value={stationForm.lat}
+                    onChange={(e) => setStationForm(prev => ({ ...prev, lat: e.target.value }))}
+                    placeholder="np. 52.2297"
+                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-600 font-sans"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider text-zinc-500 font-bold mb-1.5">Długość GPS (lng)</label>
+                  <input
+                    id="form-station-lng"
+                    type="number"
+                    step="any"
+                    value={stationForm.lng}
+                    onChange={(e) => setStationForm(prev => ({ ...prev, lng: e.target.value }))}
+                    placeholder="np. 21.0122"
+                    className="w-full bg-zinc-950 text-xs text-zinc-300 border border-subtle rounded-sm p-2.5 focus:border-white focus:outline-none placeholder-zinc-600 font-sans"
+                  />
                 </div>
               </div>
 

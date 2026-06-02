@@ -25,8 +25,14 @@ export interface Fuel {
 
 export interface StationFuel {
   fuelId: string;
-  pricePerLiter: number; // Station-specific current price
-  availableQuantity: number; // Station-specific stock level in liters
+  pricePerLiter: number;
+  availableQuantity: number;
+  priceSource?: string | null;
+  priceUpdatedAt?: string | null;
+  priceCurrency?: string | null;
+  priceVolumeUnit?: string | null;
+  externalFuelType?: string | null;
+  isEstimated?: boolean;
 }
 
 export interface Station {
@@ -34,9 +40,16 @@ export interface Station {
   name: string;
   address: string;
   city: string;
-  workingHours: string; // e.g. "06:00 - 22:00" or "24/7"
+  workingHours: string;
   status: 'czynna' | 'nieczynna';
-  fuels: StationFuel[]; // Associated fuels at this station
+  lat?: number | null;
+  lng?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  brand?: string | null;
+  externalProvider?: string | null;
+  externalFuelPriceId?: string | null;
+  fuels: StationFuel[];
   createdAt: string;
 }
 
@@ -50,6 +63,14 @@ export interface Transaction {
   totalPrice: number;
   buyerName: string;
   timestamp: string;
+  worker?: string | null;
+  paymentMethod?: string | null;
+  status?: string;
+  calcType?: string;
+  originalPrice?: number | null;
+  discountApplied?: number | null;
+  couponCode?: string | null;
+  checkoutToken?: string | null;
 }
 
 export interface LoginResponse {

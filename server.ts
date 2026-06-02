@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -5,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { apiRouter } from './backend/routes';
 import { seedDatabase } from './backend/database';
+import { startFuelPriceAutoSync } from './backend/services/fuelPriceAutoSync.service';
 
 const PORT = 3000;
 
@@ -85,6 +87,7 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[SERVER] FUELREST System Online on URL: http://localhost:${PORT}`);
     console.log(`[SERVER] Swagger documentation loaded at URL: http://localhost:${PORT}/api-docs`);
+    startFuelPriceAutoSync();
   });
 }
 

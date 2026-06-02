@@ -4,6 +4,7 @@ import { FuelController } from './controllers/fuel.controller';
 import { StationController } from './controllers/station.controller';
 import { TransactionController } from './controllers/transaction.controller';
 import { AuditLogController } from './controllers/audit.controller';
+import { FuelPriceSyncController } from './controllers/fuelPriceSync.controller';
 import { requireAuth, requireAdmin } from './middlewares/auth.middleware';
 import { CouponController } from './controllers/coupon.controller';
 import { CouponService } from './services/coupon.service';
@@ -18,6 +19,7 @@ const fuelController = new FuelController();
 const stationController = new StationController();
 const transactionController = new TransactionController();
 const auditController = new AuditLogController();
+const fuelPriceSyncController = new FuelPriceSyncController();
 
 const couponService = new CouponService();
 const checkoutService = new CheckoutService();
@@ -157,3 +159,13 @@ apiRouter.get('/api/transactions', (req, res) => transactionController.getAll(re
 
 // Audit Logs (admin only)
 apiRouter.get('/api/logs', requireAdmin, (req, res) => auditController.getLogs(req, res));
+
+// External Fuel Price Sync (BenzynaMAPA)
+apiRouter.get('/api/prices/sync/status', requireAdmin, (req, res) => fuelPriceSyncController.getStatus(req, res));
+apiRouter.get('/prices/sync/status', requireAdmin, (req, res) => fuelPriceSyncController.getStatus(req, res));
+apiRouter.post('/api/prices/sync/stations/import', requireAdmin, (req, res) => fuelPriceSyncController.importStations(req, res));
+apiRouter.post('/prices/sync/stations/import', requireAdmin, (req, res) => fuelPriceSyncController.importStations(req, res));
+apiRouter.post('/api/prices/sync', requireAdmin, (req, res) => fuelPriceSyncController.syncAll(req, res));
+apiRouter.post('/prices/sync', requireAdmin, (req, res) => fuelPriceSyncController.syncAll(req, res));
+apiRouter.post('/api/stations/:id/prices/sync', requireAdmin, (req, res) => fuelPriceSyncController.syncStation(req, res));
+apiRouter.post('/stations/:id/prices/sync', requireAdmin, (req, res) => fuelPriceSyncController.syncStation(req, res));

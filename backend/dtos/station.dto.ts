@@ -10,6 +10,13 @@ export interface CreateStationDto {
   city: string;
   workingHours: string;
   status?: string; // czynna, nieczynna
+  lat?: number | null;
+  lng?: number | null;
+  externalProvider?: string;
+  externalFuelPriceId?: string;
+  latitude?: number;
+  longitude?: number;
+  brand?: string;
   fuels?: StationFuelInput[];
 }
 
@@ -19,5 +26,12 @@ export interface UpdateStationDto {
   city?: string;
   workingHours?: string;
   status?: string; // czynna, nieczynna
+  lat?: number | null;
+  lng?: number | null;
+  externalProvider?: string;
+  externalFuelPriceId?: string;
+  latitude?: number;
+  longitude?: number;
+  brand?: string;
   fuels?: StationFuelInput[];
 }

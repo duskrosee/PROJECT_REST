@@ -27,49 +27,62 @@ model Fuel {
 }
 
 model Station {
-  id           String        @id @default(uuid())
-  name         String        @unique
-  address      String
-  city         String
-  workingHours String
-  status       String        @default("czynna") // czynna, nieczynna
-  createdAt    DateTime      @default(now())
-  fuels        StationFuel[]
-  transactions Transaction[]
+  id                  String        @id @default(uuid())
+  name                String        @unique
+  address             String
+  city                String
+  workingHours        String
+  status              String        @default("czynna") // czynna, nieczynna
+  lat                 Float?
+  lng                 Float?
+  createdAt           DateTime      @default(now())
+  externalProvider    String?
+  externalFuelPriceId String?
+  latitude            Float?
+  longitude           Float?
+  brand               String?
+  fuels               StationFuel[]
+  transactions        Transaction[]
 }
 
 model StationFuel {
-  id                Int     @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   stationId         String
   fuelId            String
   pricePerLiter     Float
   availableQuantity Float
-  station           Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  fuel              Fuel    @relation(fields: [fuelId], references: [id], onDelete: Cascade)
+  priceSource       String?
+  priceUpdatedAt    DateTime?
+  priceCurrency     String?
+  priceVolumeUnit   String?
+  externalFuelType  String?
+  isEstimated       Boolean   @default(false)
+  station           Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  fuel              Fuel      @relation(fields: [fuelId], references: [id], onDelete: Cascade)
 
   @@unique([stationId, fuelId])
 }
 
 model Transaction {
-  id            String   @id @default(uuid())
-  stationId     String
-  fuelId        String
-  fuelName      String
-  liters        Float
-  pricePerLiter Float
-  totalPrice    Float
-  buyerName     String
-  timestamp     DateTime @default(now())
-  station       Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  id              String   @id @default(uuid())
+  stationId       String
+  fuelId          String
+  fuelName        String
+  liters          Float
+  pricePerLiter   Float
+  totalPrice      Float
+  buyerName       String
+  timestamp       DateTime @default(now())
+  station         Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
-  worker        String?
-  paymentMethod String?
-  status        String   @default("opłacona")
-  calcType      String   @default("liters")
-  originalPrice    Float?
-  discountApplied  Float?    @default(0)
-  couponCode       String?
-  checkoutToken    String?   @unique
+  worker          String?
+  paymentMethod   String?
+  status          String   @default("opłacona")
+  calcType        String   @default("liters")
+  originalPrice   Float?
+  discountApplied Float?   @default(0)
+  couponCode      String?
+  checkoutToken   String?  @unique
 }
 
 model AuditLog {

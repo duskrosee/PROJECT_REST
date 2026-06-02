@@ -6,8 +6,8 @@ const transactionService = new TransactionService();
 export class TransactionController {
   async getByStation(req: Request, res: Response) {
     try {
-      const { stationId } = req.query;
-      const data = await transactionService.getTransactions(stationId as string);
+      const stationId = (req.params.id || req.query.stationId) as string;
+      const data = await transactionService.getTransactions(stationId);
        res.status(200).json(data);
     } catch (err: any) {
        res.status(500).json({ error: err.message });
