@@ -16,27 +16,18 @@ export async function seedDatabase() {
             username: 'admin',
             email: 'admin@vizja.pl',
             fullName: 'Jan Kowalski',
-            role: 'admin',
+            isAdmin: true,
             createdAt: new Date(),
             passwordHash: bcrypt.hashSync('admin123', 10),
           },
           {
-            id: 'usr_manager',
-            username: 'manager',
-            email: 'manager@vizja.pl',
+            id: 'usr_user',
+            username: 'user',
+            email: 'user@vizja.pl',
             fullName: 'Anna Nowak',
-            role: 'manager',
+            isAdmin: false,
             createdAt: new Date(),
-            passwordHash: bcrypt.hashSync('manager123', 10),
-          },
-          {
-            id: 'usr_operator',
-            username: 'operator',
-            email: 'operator@vizja.pl',
-            fullName: 'Marek Wisniewski',
-            role: 'operator',
-            createdAt: new Date(),
-            passwordHash: bcrypt.hashSync('operator123', 10),
+            passwordHash: bcrypt.hashSync('user123', 10),
           }
         ],
       });
@@ -159,6 +150,18 @@ export async function seedDatabase() {
           action: 'STARTUP',
           details: 'Bezpieczna baza SQLite została pomyślnie zamontowana i zainicjowana.',
         }
+      });
+    }
+
+    // 5. Seed Coupons if empty
+    const couponCount = await prisma.coupon.count();
+    if (couponCount === 0) {
+      console.log('[SEED] Seeding coupons...');
+      await prisma.coupon.createMany({
+        data: [
+          { id: 'c1', code: 'SAVE10', discountPercent: 10, isActive: true },
+          { id: 'c2', code: 'PROMO20', discountPercent: 20, isActive: true },
+        ],
       });
     }
 

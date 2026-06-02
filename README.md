@@ -47,7 +47,7 @@ Gwarantuje to pełną izolację danych i uniemożliwia bezpośredni dostęp wars
 ```
 
 ### Spełnienie wymogu braku bezpośredniej komunikacji z bazą:
-Aplikacja frontendowa (React) nie importuje żadnych bibliotek systemu plików (`fs`), ani nie posiada bezpośrednich linków do pliku bazy danych. Wszystkie odczyty i zapisy stacji, cen oraz kont użytkowników są przesyłane za pośrednictwem kwerend API na porcie `3000`. Bez poprawnego zalogowania i przedstawienia tokenu JWT z odpowiednią rolą (`admin`, `manager`, `operator`), aplikacja serwerowa odrzuca zapytania modyfikujące dane standardowym kodem błędu `401 Unauthorized` lub `403 Forbidden`.
+Aplikacja frontendowa (React) nie importuje żadnych bibliotek systemu plików (`fs`), ani nie posiada bezpośrednich linków do pliku bazy danych. Wszystkie odczyty i zapisy stacji, cen oraz kont użytkowników są przesyłane za pośrednictwem kwerend API na porcie `3000`. Bez poprawnego logowania i przedstawienia tokenu JWT, aplikacja serwerowa odrzuca chronione zapytania kodem `401 Unauthorized`. Operacje wymagające konta administratora (`isAdmin: true`) zwracają `403 Forbidden` dla zwykłych użytkowników.
 
 ### Interaktywna dokumentacja Swagger UI:
 Dodatkowo system posiada automatycznie generowaną dokumentację zgodną ze specyfikacją OpenAPI 3.0. Dostępna pod adresem:  
@@ -66,7 +66,7 @@ Baza danych zaimplementowana jest w SQLite i zdefiniowana w pliku `prisma/schema
   | username [string]|                    | name [string]    |
   | email [string]   |                    | type [enum]      |
   | fullName [string]|                    | pricePerLiter[num|
-  | role [enum]      |                    | availQty [num]   |
+  | isAdmin [bool]   |                    | availQty [num]   |
   | createdAt [str]  |                    +--------+---------+
   | passwordHash[str]|                             |
   +------------------+                             | 1
@@ -87,7 +87,7 @@ Baza danych zaimplementowana jest w SQLite i zdefiniowana w pliku `prisma/schema
 ```
 
 ### Słownik tabel i właściwości:
-* **User (Użytkownicy):** Dane kont operatorskich. `role` przyjmuje wartości: `admin` (pełny dostęp do systemu i użytkowników), `manager` (zarządzanie cenami i paliwami w katalogu), `operator` (odczyt oraz wprowadzanie dystrybucji na przypisanej stacji).
+* **User (Użytkownicy):** Dane kont operatorskich. Pole `isAdmin` (boolean) określa uprawnienia administratora: `true` — pełny dostęp (stacje, paliwa, użytkownicy, logi); `false` — zwykły użytkownik (m.in. tworzenie transakcji po zalogowaniu).
 * **Fuel (Katalog Paliw):** Słownik rodzajów paliw dopuszczonych w sieci stacji. Typy: `benzyna`, `diesel`, `LPG`, `inne`.
 * **Station (Stacja):** Informacje adresowe o obiekcie.
 * **Station_Fuel (Paliwo Stacji):** Tabela asocjacyjna. Określa dostępność, asortyment oraz aktualne ceny paliw na konkretnej, danej stacji paliw.
@@ -95,42 +95,52 @@ Baza danych zaimplementowana jest w SQLite i zdefiniowana w pliku `prisma/schema
 
 ## 3. Opis Endpointów REST API
 
-Wszystkie zapytania API są obsługiwane i sprawdzane pod kątem ról użytkownika. Do autoryzacji wymagany jest nagłówek:  
-`Authorization: Bearer <TOWJ_TOKEN_JWT>`
+Chronione zapytania API wymagają nagłówka:  
+`Authorization: Bearer <TWOJ_TOKEN_JWT>`
+
+Dwa poziomy dostępu:
+* **`requireAuth`** — dowolny zalogowany użytkownik (np. tworzenie transakcji).
+* **`requireAdmin`** — tylko użytkownik z `isAdmin: true` w tokenie JWT.
 
 ### Serwis Autoryzacji (No-Auth)
 | Metoda | Endpoint | Opis | Wymagane dane wejściowe | Format odpowiedzi (200 OK) |
 | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/auth/login` | Logowanie do systemu, generowanie tokenu JWT na 8h | `{ "username": "admin", "password": "..." }` | `{ "token": "...", "user": { "id": "...", "role": "admin" ... } }` |
+| **POST** | `/auth/login` | Logowanie do systemu, generowanie tokenu JWT na 8h | `{ "username": "admin", "password": "..." }` | `{ "token": "...", "user": { "id": "...", "isAdmin": true, ... } }` |
 
-### Zarządzanie Użytkownikami (Wymaga JWT)
-| Metoda | Endpoint | Opis | Uprawnienia (RBAC) | Odpowiedź (Success) |
+### Zarządzanie Użytkownikami (Wymaga JWT Admin)
+| Metoda | Endpoint | Opis | Uprawnienia | Odpowiedź (Success) |
 | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/users` | Lista wszystkich użytkowników (bez skrótów haseł) | Dowolny token | `200 OK` + tablica obiektów użytkowników |
-| **POST** | `/api/users` | Rejestracja nowego operatora/managera | Bezpośrednio (No-Auth/Rejestracja) | `201 Created` + profil użytkowika |
-| **PUT** | `/api/users/:id`| Modyfikacja danych użytkownika (email, hasło, uprawnienia) | `admin`, `manager` | `200 OK` + zaktualizowany obiekt |
-| **DELETE**| `/api/users/:id`| Skasowanie konta z systemu | `admin` | `204 No Content` |
+| **GET** | `/api/users` | Lista wszystkich użytkowników (bez skrótów haseł) | `isAdmin` | `200 OK` + tablica obiektów użytkowników |
+| **POST** | `/api/users` | Rejestracja nowego użytkownika | `isAdmin` | `201 Created` + profil użytkownika |
+| **PUT** | `/api/users/:id`| Modyfikacja danych użytkownika (email, hasło, isAdmin) | `isAdmin` | `200 OK` + zaktualizowany obiekt |
+| **DELETE**| `/api/users/:id`| Skasowanie konta z systemu | `isAdmin` | `204 No Content` |
 
 ### Słownik i Zasoby Paliw w Katalogu
-| Metoda | Endpoint | Opis | Uprawnienia (RBAC) | Odpowiedź (Success) |
+| Metoda | Endpoint | Opis | Uprawnienia | Odpowiedź (Success) |
 | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/fuels` | Zwraca katalog paliw | Dowolny token / Gość | `200 OK` + lista paliw w bazie |
-| **POST** | `/api/fuels` | Dodanie nowego paliwa do katalogu głównego | `admin`, `manager` | `201 Created` + obiekt nowego paliwa |
-| **PUT** | `/api/fuels/:id`| Zmiana zapasu rezerwowego lub opisu paliwa | `admin`, `manager` | `200 OK` |
-| **DELETE**| `/api/fuels/:id`| Usunięcie paliwa z katalogu i odpięcie go od stacji | `admin` | `204 No Content` |
+| **GET** | `/api/fuels` | Zwraca katalog paliw | Publiczny | `200 OK` + lista paliw w bazie |
+| **POST** | `/api/fuels` | Dodanie nowego paliwa do katalogu głównego | `isAdmin` | `201 Created` + obiekt nowego paliwa |
+| **PUT** | `/api/fuels/:id`| Zmiana zapasu rezerwowego lub opisu paliwa | `isAdmin` | `200 OK` |
+| **DELETE**| `/api/fuels/:id`| Usunięcie paliwa z katalogu i odpięcie go od stacji | `isAdmin` | `204 No Content` |
 
 ### Zarządzanie Stacjami i Asortymentem
-| Metoda | Endpoint | Opis | Uprawnienia (RBAC) | Odpowiedź (Success) |
+| Metoda | Endpoint | Opis | Uprawnienia | Odpowiedź (Success) |
 | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/stations`| Spis stacji wraz z cenami asortymentu | Dowolny token | `200 OK` + lista stacji |
-| **POST** | `/api/stations`| Założenie nowej stacji paliw | `admin`, `manager` | `201 Created` |
-| **PUT** | `/api/stations/:id`| Aktualizacja cen stacji, ilości litrów lub danych adresowych | `admin`, `manager`, `operator` | `200 OK` |
-| **DELETE**| `/api/stations/:id`| Likwidacja stacji z sieci | `admin` | `204 No Content` |
+| **GET** | `/api/stations`| Spis stacji wraz z cenami asortymentu | Publiczny | `200 OK` + lista stacji |
+| **POST** | `/api/stations`| Założenie nowej stacji paliw | `isAdmin` | `201 Created` |
+| **PUT** | `/api/stations/:id`| Aktualizacja cen stacji, ilości litrów lub danych adresowych | `isAdmin` | `200 OK` |
+| **DELETE**| `/api/stations/:id`| Likwidacja stacji z sieci | `isAdmin` | `204 No Content` |
+
+### Transakcje
+| Metoda | Endpoint | Opis | Uprawnienia | Odpowiedź (Success) |
+| :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/api/stations/:id/transactions` | Realizacja tankowania | Dowolny zalogowany użytkownik | `210` + paragon |
+| **GET** | `/api/transactions` | Rejestr transakcji | Publiczny | `200 OK` |
 
 ### System Logów Audytowych (Audit Log)
-| Metoda | Endpoint | Opis | Uprawnienia (RBAC) | Odpowiedź (Success) |
+| Metoda | Endpoint | Opis | Uprawnienia | Odpowiedź (Success) |
 | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/logs` | Pobiera historię operacji modyfikujących system | Dowolny token | `200 OK` + tablica 200 ostatnich logów |
+| **GET** | `/api/logs` | Pobiera historię operacji modyfikujących system | `isAdmin` | `200 OK` + tablica 200 ostatnich logów |
 
 
 ## 4. Instrukcja Uruchomienia Systemu

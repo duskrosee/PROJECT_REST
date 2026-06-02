@@ -52,8 +52,8 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
     {
       method: 'POST',
       path: '/stations',
-      description: 'Dodaje nową stację paliw do systemu (Dostępne dla roli Admin oraz Kierownik).',
-      requiresAuth: 'Admin/Kierownik',
+      description: 'Dodaje nową stację paliw do systemu (tylko administrator).',
+      requiresAuth: 'Tylko Admin (isAdmin)',
       requestBodyExample: JSON.stringify({
         name: 'MOL Gdańsk Oliwa',
         address: 'ul. Grunwaldzka 400',
@@ -69,14 +69,14 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
         { code: 201, desc: 'Stacja dodana pomyślnie.' },
         { code: 400, desc: 'Błąd walidacji pól wejściowych.' },
         { code: 401, desc: 'Brak autoryzacji / nieprawidłowy token JWT.' },
-        { code: 403, desc: 'Brak wymaganej roli Admin/Kierownik.' }
+        { code: 403, desc: 'Brak uprawnień administratora.' }
       ]
     },
     {
       method: 'PUT',
       path: '/stations/:id',
-      description: 'Modyfikuje dane stacji, aktualizuje ceny, status ("czynna" lub "nieczynna") lub zasoby paliw (Wymaga odpowiednich ról).',
-      requiresAuth: 'Admin/Kierownik/Operator',
+      description: 'Modyfikuje dane stacji, aktualizuje ceny, status ("czynna" lub "nieczynna") lub zasoby paliw (tylko administrator).',
+      requiresAuth: 'Tylko Admin (isAdmin)',
       requestBodyExample: JSON.stringify({
         workingHours: '05:00 - 23:00',
         status: 'nieczynna',
@@ -94,7 +94,7 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
       method: 'DELETE',
       path: '/stations/:id',
       description: 'Usuwa stację paliw o podanym identyfikatorze (Tylko dla administratora).',
-      requiresAuth: 'Tylko Admin',
+      requiresAuth: 'Tylko Admin (isAdmin)',
       responseCodes: [
         { code: 204, desc: 'Stacja usunięta pomyślnie (brak zawartości odpowiedzi).' },
         { code: 404, desc: 'Stacja o podanym ID nie istnieje.' }
@@ -113,7 +113,7 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
       method: 'POST',
       path: '/fuels',
       description: 'Dodaje nowy rodzaj paliwa do globalnego katalogu.',
-      requiresAuth: 'Admin/Kierownik',
+      requiresAuth: 'Tylko Admin (isAdmin)',
       requestBodyExample: JSON.stringify({
         name: 'AdBlue Premium',
         type: 'inne',
@@ -129,7 +129,7 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
       method: 'POST',
       path: '/stations/:id/transactions',
       description: 'Realizuje transakcję zakupu/tankowania paliwa dla wskazanej stacji. Odejmuje ilość litrów od dostępnego zasobu stacji.',
-      requiresAuth: 'Brak',
+      requiresAuth: 'JWT (dowolny zalogowany użytkownik)',
       requestBodyExample: JSON.stringify({
         fuelId: 'fuel_pb95',
         liters: 35,
@@ -163,7 +163,7 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
       method: 'GET',
       path: '/api/logs',
       description: 'Zwraca pełny rejestr operacji nadzorczych (audit logs) systemu, np. logowanie, dodanie stacji, usunięcie.',
-      requiresAuth: 'Brak',
+      requiresAuth: 'Tylko Admin (isAdmin)',
       responseCodes: [
         { code: 200, desc: 'Zwraca listę audit logów.' }
       ]
@@ -172,7 +172,7 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
       method: 'GET',
       path: '/users',
       description: 'Zwraca listę zarejestrowanych użytkowników w systemie (brak haseł).',
-      requiresAuth: 'Brak',
+      requiresAuth: 'Tylko Admin (isAdmin)',
       responseCodes: [
         { code: 200, desc: 'Lista pobrana pomyślnie.' }
       ]
@@ -181,13 +181,13 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
       method: 'POST',
       path: '/users',
       description: 'Rejestruje nowego użytkownika w systemie.',
-      requiresAuth: 'Brak',
+      requiresAuth: 'Tylko Admin (isAdmin)',
       requestBodyExample: JSON.stringify({
         username: 'nowyUser',
         password: 'haslo123',
         email: 'user@vizja.pl',
         fullName: 'Krzysztof Kowal',
-        role: 'operator'
+        isAdmin: false
       }, null, 2),
       responseCodes: [
         { code: 201, desc: 'Konto utworzone pomyślnie.' },
@@ -207,7 +207,7 @@ export default function ApiDocumentation({ token }: { token: string | null }) {
       } else if (endpoints[idx].path.startsWith('/fuels')) {
         setCustomParam('fuel_pb95');
       } else if (endpoints[idx].path.startsWith('/users')) {
-        setCustomParam('usr_operator');
+        setCustomParam('usr_user');
       }
     } else {
       setCustomParam('');

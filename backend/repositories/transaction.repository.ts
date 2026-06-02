@@ -19,6 +19,12 @@ export class TransactionRepository {
     });
   }
 
+  async findByCheckoutToken(checkoutToken: string) {
+    return await prisma.transaction.findUnique({
+      where: { checkoutToken }
+    });
+  }
+
   async createTransaction(
       stationId: string,
       fuelId: string,

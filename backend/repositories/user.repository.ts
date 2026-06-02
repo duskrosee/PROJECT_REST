@@ -33,7 +33,7 @@ export class UserRepository {
         username: data.username,
         email: data.email,
         fullName: data.fullName,
-        role: data.role || 'operator',
+        isAdmin: data.isAdmin ?? false,
         passwordHash: data.passwordHash,
         createdAt: new Date()
       }
@@ -46,7 +46,7 @@ export class UserRepository {
       data: {
         email: data.email,
         fullName: data.fullName,
-        role: data.role,
+        isAdmin: data.isAdmin,
         passwordHash: data.passwordHash
       }
     });

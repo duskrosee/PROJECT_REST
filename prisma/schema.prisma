@@ -12,7 +12,7 @@ model User {
   username     String   @unique
   email        String   @unique
   fullName     String
-  role         String   // admin, manager, operator
+  isAdmin      Boolean  @default(false)
   createdAt    DateTime @default(now())
   passwordHash String
 }

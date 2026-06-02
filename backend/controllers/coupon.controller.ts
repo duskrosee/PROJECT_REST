@@ -7,10 +7,14 @@ export const CouponController = {
     async validate(req: Request, res: Response) {
         try {
             const { code } = req.body;
+            if (!code || typeof code !== 'string' || !code.trim()) {
+                res.status(400).json({ error: 'Kod kuponu jest wymagany' });
+                return;
+            }
             const coupon = await couponService.validate(code);
-            res.json({ valid: true, discountPercent: coupon!.discountPercent });
+            res.json({ code: coupon.code, discountPercent: coupon.discountPercent });
         } catch (e: any) {
-            res.status(400).json({ valid: false, error: e.message });
+            res.status(400).json({ error: e.message });
         }
     },
 };

@@ -21,12 +21,13 @@ export class UserService {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, email: user.email, role: user.role },
+      { id: user.id, username: user.username, email: user.email, isAdmin: user.isAdmin },
       JWT_SECRET,
       { expiresIn: '8h' }
     );
 
-    await this.auditRepo.create(user.username, 'LOGIN', `Zalogowano pomyślnie. Rola: ${user.role}`);
+    const roleLabel = user.isAdmin ? 'administrator' : 'użytkownik';
+    await this.auditRepo.create(user.username, 'LOGIN', `Zalogowano pomyślnie. Typ konta: ${roleLabel}`);
 
     const { passwordHash, ...cleanUser } = user;
     return { token, user: cleanUser };
@@ -65,24 +66,21 @@ export class UserService {
       throw new Error('Użytkownik o takim adresie e-mail już istnieje');
     }
 
-    const newUserRole = dto.role || 'operator';
-    if (!['admin', 'manager', 'operator'].includes(newUserRole)) {
-      throw new Error('Niepoprawna rola użytkownika');
-    }
-
     const id = 'usr_' + Math.random().toString(36).substring(2, 11);
     const passwordHash = bcrypt.hashSync(dto.password, 10);
+    const isAdmin = dto.isAdmin ?? false;
 
     const created = await this.userRepo.create({
       id,
       username: dto.username,
       email: dto.email,
       fullName: dto.fullName,
-      role: newUserRole as any,
+      isAdmin,
       passwordHash
     });
 
-    await this.auditRepo.create('SYSTEM', 'USER_REGISTRATION', `Zarejestrowano użytkownika ${dto.username} z rolą ${newUserRole}`);
+    const roleLabel = isAdmin ? 'administrator' : 'użytkownik';
+    await this.auditRepo.create('SYSTEM', 'USER_REGISTRATION', `Zarejestrowano użytkownika ${dto.username} (${roleLabel})`);
 
     const { passwordHash: _, ...cleanUser } = created;
     return cleanUser;
@@ -99,10 +97,6 @@ export class UserService {
       if (emailOccupied) {
         throw new Error('Adres e-mail jest już zajęty');
       }
-    }
-
-    if (dto.role && !['admin', 'manager', 'operator'].includes(dto.role)) {
-      throw new Error('Niepoprawna rola');
     }
 
     let passwordHash: string | undefined;

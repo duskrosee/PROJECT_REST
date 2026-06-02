@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 
 const CARDS = [
     { id: 'visa', label: 'VISA ****1234' },
@@ -8,36 +8,60 @@ const CARDS = [
 
 export function PaymentModal({ open, onClose, draft, onPaid }: any) {
     const [coupon, setCoupon] = useState('');
+    const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
     const [discount, setDiscount] = useState(0);
     const [card, setCard] = useState(CARDS[0].id);
     const [phase, setPhase] = useState<'form'|'processing'|'success'>('form');
     const [error, setError] = useState('');
 
+    useEffect(() => {
+        if (open) {
+            setCoupon('');
+            setAppliedCoupon(null);
+            setDiscount(0);
+            setCard(CARDS[0].id);
+            setPhase('form');
+            setError('');
+        }
+    }, [open]);
+
+    const handleCouponChange = (value: string) => {
+        setCoupon(value);
+        setAppliedCoupon(null);
+        setDiscount(0);
+        setError('');
+    };
+
     const applyCoupon = async () => {
         setError('');
+        const trimmed = coupon.trim();
+        if (!trimmed) {
+            setError('Kod kuponu jest wymagany');
+            return;
+        }
         const r = await fetch('/api/coupons/validate', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ code: coupon }),
+            body: JSON.stringify({ code: trimmed }),
         });
         const data = await r.json();
-        if (!r.ok) { setError(data.error); setDiscount(0); return; }
+        if (!r.ok) { setError(data.error); setDiscount(0); setAppliedCoupon(null); return; }
         setDiscount(data.discountPercent);
+        setAppliedCoupon(trimmed.toUpperCase());
     };
+
+    const couponPending = coupon.trim().length > 0 && appliedCoupon !== coupon.trim().toUpperCase();
 
     const pay = async () => {
         setPhase('processing');
-        // 1. create checkout session
         const c = await fetch('/api/checkout/create', {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ ...draft, couponCode: coupon || undefined }),
+            body: JSON.stringify({ ...draft, couponCode: appliedCoupon ?? undefined }),
         });
         const { token, error: ce } = await c.json();
         if (ce) { setError(ce); setPhase('form'); return; }
 
-        // 2. simulate bank delay
         await new Promise(r => setTimeout(r, 2500));
 
-        // 3. confirm
         const f = await fetch(`/api/checkout/${token}/confirm`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ paymentMethod: CARDS.find(x=>x.id===card)!.label }),
@@ -61,10 +85,11 @@ export function PaymentModal({ open, onClose, draft, onPaid }: any) {
                         <div className="flex gap-2 mb-3">
                             <input className="flex-1 bg-zinc-900 border-subtle rounded px-3 py-2"
                                    placeholder="Kod kuponu" value={coupon}
-                                   onChange={e=>setCoupon(e.target.value)} />
+                                   onChange={e => handleCouponChange(e.target.value)} />
                             <button onClick={applyCoupon} className="px-3 py-2 bg-zinc-800 rounded">Zastosuj</button>
                         </div>
                         {discount > 0 && <p className="text-emerald-400 text-sm mb-2">Rabat: -{discount}%</p>}
+                        {couponPending && <p className="text-amber-400 text-sm mb-2">Kliknij „Zastosuj”, aby aktywować kupon.</p>}
                         {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
 
                         <div className="space-y-2 mb-4">
@@ -79,7 +104,10 @@ export function PaymentModal({ open, onClose, draft, onPaid }: any) {
                         <p className="text-2xl mb-4">Do zapłaty: <b>{preview.toFixed(2)} zł</b></p>
                         <div className="flex gap-2">
                             <button onClick={onClose} className="flex-1 py-2 bg-zinc-800 rounded">Anuluj</button>
-                            <button onClick={pay} className="flex-1 py-2 bg-emerald-600 rounded">Zapłać</button>
+                            <button onClick={pay} disabled={couponPending}
+                                    className="flex-1 py-2 bg-emerald-600 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                                Zapłać
+                            </button>
                         </div>
                     </>
                 )}
