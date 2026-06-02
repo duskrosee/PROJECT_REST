@@ -62,11 +62,14 @@ model Transaction {
   timestamp     DateTime @default(now())
   station       Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
-  // New fields for the workers and payment status
-  worker        String?  // Pracownik 1, Pracownik 2, Pracownik 3
-  paymentMethod String?  // Gotówka, Karta, Przelew, BLIK
-  status        String   @default("opłacona") // opłacona, nieudana
-  calcType      String   @default("liters")   // liters, price
+  worker        String?
+  paymentMethod String?
+  status        String   @default("opłacona")
+  calcType      String   @default("liters")
+  originalPrice    Float?
+  discountApplied  Float?    @default(0)
+  couponCode       String?
+  checkoutToken    String?   @unique
 }
 
 model AuditLog {
@@ -75,4 +78,13 @@ model AuditLog {
   user      String
   action    String
   details   String
+}
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int
+  isActive        Boolean   @default(true)
+  expiryDate      DateTime?
+  createdAt       DateTime  @default(now())
 }

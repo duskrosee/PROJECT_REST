@@ -20,21 +20,25 @@ export class TransactionRepository {
   }
 
   async createTransaction(
-    stationId: string,
-    fuelId: string,
-    fuelName: string,
-    liters: number,
-    pricePerLiter: number,
-    totalPrice: number,
-    buyerName: string,
-    worker?: string,
-    paymentMethod?: string,
-    status: string = "opłacona",
-    calcType: string = "liters"
+      stationId: string,
+      fuelId: string,
+      fuelName: string,
+      liters: number,
+      pricePerLiter: number,
+      totalPrice: number,
+      buyerName: string,
+      worker?: string,
+      paymentMethod?: string,
+      status: string = "opłacona",
+      calcType: string = "liters",
+      extra: {
+        originalPrice?: number;
+        discountApplied?: number;
+        couponCode?: string;
+        checkoutToken?: string;
+      } = {}
   ) {
-    // We execute this as a Prisma transaction to decrement inventory (if successful) and create the purchase receipt atomically
     return await prisma.$transaction(async (tx) => {
-      // 1. Create transaction log
       const txRecord = await tx.transaction.create({
         data: {
           stationId,
@@ -48,11 +52,14 @@ export class TransactionRepository {
           paymentMethod,
           status,
           calcType,
-          timestamp: new Date()
+          timestamp: new Date(),
+          originalPrice: extra.originalPrice,
+          discountApplied: extra.discountApplied ?? 0,
+          couponCode: extra.couponCode,
+          checkoutToken: extra.checkoutToken,
         }
       });
 
-      // 2. Decrement the inventory from the station fuel stock ONLY if the payment status is successful ("opłacona")
       if (status === 'opłacona') {
         await tx.stationFuel.update({
           where: {

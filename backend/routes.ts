@@ -5,6 +5,9 @@ import { StationController } from './controllers/station.controller';
 import { TransactionController } from './controllers/transaction.controller';
 import { AuditLogController } from './controllers/audit.controller';
 import { authorizeJwt } from './middlewares/auth.middleware';
+import { CouponService } from './services/coupon.service';
+import { CheckoutService } from './services/checkout.service';
+import { TransactionService } from './services/transaction.service';
 
 export const apiRouter = Router();
 
@@ -13,6 +16,65 @@ const fuelController = new FuelController();
 const stationController = new StationController();
 const transactionController = new TransactionController();
 const auditController = new AuditLogController();
+
+const couponService = new CouponService();
+const checkoutService = new CheckoutService();
+const transactionService = new TransactionService();
+
+// 1. Проверка купона (Preview discount)
+apiRouter.post('/api/coupons/validate', async (req, res) => {
+    try {
+        const coupon = await couponService.validate(req.body.code);
+        res.json({ code: coupon!.code, discountPercent: coupon!.discountPercent });
+    } catch (e: any) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+// 2. Создание платежной сессии (Create payment session)
+apiRouter.post('/api/checkout/create', async (req, res) => {
+    try {
+        const { stationId, fuelId, liters, buyerName, worker, couponCode, calcType } = req.body;
+
+        if (couponCode) {
+            await couponService.validate(couponCode);
+        }
+
+        const token = checkoutService.create({
+            stationId, fuelId, liters, buyerName, worker, couponCode, calcType,
+        });
+
+        res.json({ token });
+    } catch (e: any) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+// 3. Подтверждение оплаты (Finalize payment)
+apiRouter.post('/api/checkout/:token/confirm', async (req, res) => {
+    try {
+        const session = checkoutService.consume(req.params.token);
+        const { paymentMethod } = req.body;
+
+        const receipt = await transactionService.createTransaction(
+            session.stationId,
+            session.fuelId,
+            session.liters,
+            session.buyerName,
+            session.worker,
+            paymentMethod,
+            'opłacona',
+            session.calcType,
+            undefined,
+            session.couponCode,
+            session.token
+        );
+
+        res.json(receipt);
+    } catch (e: any) {
+        res.status(400).json({ error: e.message });
+    }
+});
 
 // Auth Endpoints
 apiRouter.post('/auth/login', (req, res) => userController.login(req, res));
